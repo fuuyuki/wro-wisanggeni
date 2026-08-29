@@ -19,9 +19,9 @@ MIN_CONF = 0.7
 #BUTTON_EXIT = 27
 #BUTTONS_AUDIO = [4, 22, 23]
 
-BUTTON_PIN = 17 #-----------------------------------------------------------------
+BUTTON_PIN = 17 #bisa diganti 17, asli 25-----------------------------------------------------------------
 BUTTON_EXIT = 23
-BUTTONS_AUDIO = [17, 22, 27]
+BUTTONS_AUDIO = [17, 27, 22]
 
 AUDIO_FOLDER = 'audio'
 
@@ -53,12 +53,12 @@ def inisialisasi_audio():
         vlc_instance = vlc.Instance()
         vlc_player = vlc_instance.media_player_new()
         
+        #vlc_player.audio_set_volume(200)
+        
         # AKTIFKAN EQUALIZER AKTIF AGAR SUARA SPEAKER BOSE KELUAR MAKSIMAL
         eq = vlc.AudioEqualizer('Rock')  # Preset Rock membuka suara treble & bass yang mendem
-        eq.set_preamp(4.0)              # Menaikkan power dasar sinyal Raspi sebesar +12dB
+        eq.set_preamp(1000.0)              # Menaikkan power dasar sinyal Raspi sebesar +12dB
         vlc_player.set_equalizer(eq)
-        
-        vlc_player.audio_set_volume(200)  # Set volume
         
         print("Audio VLC + Active Equalizer Ok")
     except Exception as e:
@@ -111,6 +111,7 @@ def putar_suara(class_id, nomor_tombol=None):
         media = vlc_instance.media_new(path_lengkap)
         vlc_player.set_media(media)
         vlc_player.play()
+        vlc_player.audio_set_volume(200)
 
     else:
         print(f"Peringatan: File berkas suara '{path_lengkap}' tidak ditemukan!")
