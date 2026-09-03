@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import os
 import time
-#import serial
+import serial
 import RPi.GPIO as GPIO
 from tensorflow.lite.python.interpreter import Interpreter
 import vlc
@@ -11,15 +11,15 @@ import vlc
 MODEL_PATH = 'detect.tflite'
 LABEL_PATH = 'labelmap.txt'
 MIN_CONF = 0.7
-#SERIAL_PORT = '/dev/ttyUSB0'
-#BAUD_RATE = 115200
+SERIAL_PORT = '/dev/ttyUSB0'
+BAUD_RATE = 115200
 
 #Konfigurasi Pin gpio
 #BUTTON_PIN = 17
 #BUTTON_EXIT = 27
 #BUTTONS_AUDIO = [4, 22, 23]
 
-BUTTON_PIN = 17 #bisa diganti 17, asli 25-----------------------------------------------------------------
+BUTTON_PIN = 24 #bisa diganti 17, asli 25-----------------------------------------------------------------
 BUTTON_EXIT = 23
 BUTTONS_AUDIO = [17, 27, 22]
 
@@ -37,7 +37,7 @@ def inisialisasi_gpio():
     """Mengatur konfigurasi pin tombol Raspberry Pi"""
     GPIO.setmode(GPIO.BCM)
     
-    GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP) #pin 17 scan
+    GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #pin 17 scan
         
     GPIO.setup(BUTTON_EXIT, GPIO.IN, pull_up_down=GPIO.PUD_UP) #pin 27 exit
     
@@ -64,17 +64,17 @@ def inisialisasi_audio():
     except Exception as e:
         print(f"Gagal menginisialisasi VLC Audio: {e}")
 
-#def inisialisasi_serial():
-#    """Mengatur koneksi komunikasi data ke Arduino"""
-#    try:
-#        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-#        time.sleep(3)
-#        ser.reset_input_buffer()
-#        print("Serial Ok")
-#        return ser
-#    except Exception as e:
-#        print(f"Gagal membuka Serial Port: {e}")
-#        return None
+def inisialisasi_serial():
+    """Mengatur koneksi komunikasi data ke Arduino"""
+    try:
+        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+        time.sleep(3)
+        ser.reset_input_buffer()
+        print("Serial Ok")
+        return ser
+    except Exception as e:
+        print(f"Gagal membuka Serial Port: {e}")
+        return None
 
 def inisialisasi_model():
     """Memuat model TFLite dan membaca file label objek"""
@@ -117,18 +117,19 @@ def putar_suara(class_id, nomor_tombol=None):
         print(f"Peringatan: File berkas suara '{path_lengkap}' tidak ditemukan!")
 
 
-#def kirim_ke_esp32(ser):
-#    """Mengirim string 'e' ke esp32 via Serial"""
-#    if ser is not None:
-#        try:
-#            message = "exit\n"
-#            ser.write(message.encode('utf-8'))
-#            print("data terkirim ke esp32: exit")
-#        except Exception as e:
-#            print(f"Gagal mengirim data Serial: {e}")
+def kirim_ke_esp32(ser):
+    """Mengirim string 'e' ke esp32 via Serial"""
+    if ser is not None:
+        try:
+            message = "e"
+            ser.write(message.encode('utf-8'))
+            #ser.write(b"e")
+            print("data terkirim ke esp32: e")
+        except Exception as e:
+            print(f"Gagal mengirim data Serial: {e}")
 
 # ================ 3. fungsi scanning objek =====================
-def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels): #di sini nanti tambahkan variabel ser kalau udah dipasang ke esp32
+def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels,ser): #di sini nanti tambahkan variabel ser kalau udah dipasang ke esp32
     """Membuka kamera, capture objek, MATIKAN KAMERA SEGERA, lalu tampilkan gambar diam + audio"""
     global capture_count, vlc_player
     
@@ -268,8 +269,8 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
                     else:
                         print(f"Peringatan: file audio exit '{nama_file_exit}' tidak ditemukan, lanjut tanpa suara")
                     
-                    print("Audio exit selesai. Mengirim pesan exit ke ESP32...")
-                    #kirim_ke_esp32(ser)
+                    print("Audio exit selesai. Mengirim pesan e ke ESP32...")
+                    kirim_ke_esp32(ser)
                     break #keluar dari loop audio, menutup layar
             
             #B. Cek tombol pilihan audio tambahan GPIO 4,22,23,24
@@ -303,19 +304,19 @@ def main():
     # Panggil semua fungsi inisialisasi diawal
     inisialisasi_gpio()
     inisialisasi_audio()
-    #ser = inisialisasi_serial()
+    ser = inisialisasi_serial()
     interpreter, input_details, output_details, labels = inisialisasi_model()
     
-    print("\n system standby: tekan tombol gpio 17 untuk memulai scan")
+    print("\n system standby: menunggu perintah dari ESP32")
     
     try:
         while True:
             #cek penekanan tombol fisik saat mode standby
-            if GPIO.input(BUTTON_PIN) == GPIO.LOW:
+            if GPIO.input(BUTTON_PIN) == GPIO.HIGH:
                 print("\n tombol ditekan")
                 time.sleep(0.4)
                 
-                jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels) #tambahkan ser kalau sudah disambungkan ke esp32
+                jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels,ser) #tambahkan ser kalau sudah disambungkan ke esp32
                 
                 print("\n=== SYSTEM STANDBY: Siap Menerima Trigger Berikutnya ===")
 
@@ -324,8 +325,8 @@ def main():
     finally:
         # Menjamin pembersihan resource perangkat keras saat program ditutup
         print("\nMembersihkan Resource...")
-        #if ser is not None:
-        #    ser.close()
+        if ser is not None:
+            ser.close()
         GPIO.cleanup()
         print("Program Selesai.")
 
