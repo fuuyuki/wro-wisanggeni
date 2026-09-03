@@ -314,15 +314,30 @@ def main():
     try:
         while True:
             #cek penekanan tombol fisik saat mode standby
+            # if GPIO.input(BUTTON_PIN) == GPIO.HIGH:
+            #     print("\n tombol ditekan")
+            #     time.sleep(0.4)
+
+            #     jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels,ser) #tambahkan ser kalau sudah disambungkan ke esp32
+
+            #     print("\n=== SYSTEM STANDBY: Siap Menerima Trigger Berikutnya ===")
+
+            # time.sleep(0.05)
             if GPIO.input(BUTTON_PIN) == GPIO.HIGH:
-                print("\n tombol ditekan")
-                time.sleep(0.4)
+                waktu_mulai = time.time()
 
-                jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels,ser) #tambahkan ser kalau sudah disambungkan ke esp32
+                # Tunggu sampai pin kembali LOW atau sampai batas 0.5 dtk (tekan lama)
+                while GPIO.input(BUTTON_PIN) == GPIO.HIGH and (time.time() - waktu_mulai) < 0.5:
+                    time.sleep(0.01)
 
-                print("\n=== SYSTEM STANDBY: Siap Menerima Trigger Berikutnya ===")
+                durasi = time.time() - waktu_mulai
 
-            time.sleep(0.05)
+                if durasi >= 0.1:   # HIGH stabil minimal ~100 ms => penekanan nyata
+                    print("\n tombol ditekan (tahan {} ms)".format(int(durasi * 1000)))
+                    time.sleep(0.4)
+                    jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels, ser)
+                    print("\n=== SYSTEM STANDBY: Siap Menerima Trigger Berikutnya ===")
+
 
     finally:
         # Menjamin pembersihan resource perangkat keras saat program ditutup
