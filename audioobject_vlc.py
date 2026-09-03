@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 import os
+cv2.setNumThreads(0)   # optional
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"  # optional, not needed
 import time
 import serial
 import RPi.GPIO as GPIO
@@ -234,7 +236,7 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
 
         while True:
             #Tampilkan foto diam hasil capture secara berulang agar os tidak hang
-            # cv2.imshow('output', frame_terakhir)
+            cv2.imshow('output', frame_terakhir)
             cv2.waitKey(30)
 
             #cek status secara real-tme: apakah ada audio yang sedang berputar?
