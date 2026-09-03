@@ -36,30 +36,30 @@ vlc_player = None
 def inisialisasi_gpio():
     """Mengatur konfigurasi pin tombol Raspberry Pi"""
     GPIO.setmode(GPIO.BCM)
-    
+
     GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) #pin 17 scan
-        
+
     GPIO.setup(BUTTON_EXIT, GPIO.IN, pull_up_down=GPIO.PUD_UP) #pin 27 exit
-    
-    GPIO.setup(BUTTONS_AUDIO, GPIO.IN, pull_up_down=GPIO.PUD_UP) #pin 4,22,23,24 
+
+    GPIO.setup(BUTTONS_AUDIO, GPIO.IN, pull_up_down=GPIO.PUD_UP) #pin 4,22,23,24
     print("GPIO semua Ok")
 
-    
+
 
 def inisialisasi_audio():
     global vlc_instance, vlc_player
-    
+
     try:
         vlc_instance = vlc.Instance()
         vlc_player = vlc_instance.media_player_new()
-        
+
         #vlc_player.audio_set_volume(200)
-        
+
         # AKTIFKAN EQUALIZER AKTIF AGAR SUARA SPEAKER BOSE KELUAR MAKSIMAL
         eq = vlc.AudioEqualizer('Rock')  # Preset Rock membuka suara treble & bass yang mendem
         eq.set_preamp(1000.0)              # Menaikkan power dasar sinyal Raspi sebesar +12dB
         vlc_player.set_equalizer(eq)
-        
+
         print("Audio VLC + Active Equalizer Ok")
     except Exception as e:
         print(f"Gagal menginisialisasi VLC Audio: {e}")
@@ -80,14 +80,14 @@ def inisialisasi_model():
     """Memuat model TFLite dan membaca file label objek"""
     interpreter = Interpreter(model_path=MODEL_PATH)
     interpreter.allocate_tensors()
-    
+
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
-    
+
     # Membaca daftar label objek
     with open(LABEL_PATH, 'r') as f:
         labels = [line.strip() for line in f.readlines()]
-        
+
     print("Model TFLite Ok")
     return interpreter, input_details, output_details, labels
 
@@ -96,18 +96,18 @@ def inisialisasi_model():
 def putar_suara(class_id, nomor_tombol=None):
     """Memutar file suara berdasarkan indeks kelas objek tanpa membuat layar macet"""
     global vlc_instance, vlc_player
-    
+
     if nomor_tombol is None:
         nama_file_suara = f"suara_{class_id}.mp3"
     else:
         nama_file_suara = f"suara_{class_id}_tombol_{nomor_tombol}.mp3"
-        
+
     path_lengkap = os.path.join(AUDIO_FOLDER, nama_file_suara)
-        
+
     if os.path.exists(path_lengkap):
         print(f"Memuat audio baru ke sistem: {path_lengkap}")
         vlc_player.stop()
-        
+
         media = vlc_instance.media_new(path_lengkap)
         vlc_player.set_media(media)
         vlc_player.play()
@@ -132,19 +132,19 @@ def kirim_ke_esp32(ser):
 def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels,ser): #di sini nanti tambahkan variabel ser kalau udah dipasang ke esp32
     """Membuka kamera, capture objek, MATIKAN KAMERA SEGERA, lalu tampilkan gambar diam + audio"""
     global capture_count, vlc_player
-    
+
     height = input_details[0]['shape'][1]
     width = input_details[0]['shape'][2]
     float_input = (input_details[0]['dtype'] == np.float32)
 
     print("Membuka Kamera & Mulai Deteksi...")
     cap = cv2.VideoCapture(0)
-    
+
     frame_terakhir = None
     class_id = None
     capture_message = ""
     prev_time = 0
-    
+
     try:
         # --- TAHAP 1: NYALAKAN KAMERA & CARI OBJEK ---
         while True:
@@ -152,7 +152,7 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
             if not ret:
                 print("Gagal membaca frame kamera.")
                 break
-            
+
             current_time = time.time()
 
             image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -194,13 +194,13 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
 
                     capture_message = f"Captured class {class_id}"
                     print(f"Berhasil Capture! {capture_message} | Total: {capture_count[class_id]}")
-                    
+
                     # Tampilkan notifikasi teks di atas foto hasil capture
                     cv2.putText(frame, capture_message, (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 3, cv2.LINE_AA)
 
                     # Simpan gambar terakhir yang sudah ada bounding box-nya ke memori
                     frame_terakhir = frame.copy()
-                    
+
                     # Pemicu Audio dinyalakan
                     putar_suara(class_id)
                     objek_ditemukan = True
@@ -208,11 +208,11 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
 
             if objek_ditemukan:
                 break # Keluar dari loop kamera jika objek sudah didapatkan
-            
+
             time_diff = current_time - prev_time
             fps = 1/time_diff if time_diff > 0 else 0
             prev_time = current_time
-            
+
             fps_text = f"fps: {fps:.1f}"
             cv2.putText(frame, fps_text, (20,40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2, cv2.LINE_AA)
 
@@ -231,48 +231,48 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
     if frame_terakhir is not None and class_id is not None:
         print (f"--- Masuk ke menu audio objek kelas {class_id}. ---")
         print("CATATAN: AUDIO YANG SEDANG BERJALAN HARUS SELESAI TOTAL SEBELUM TOMBOL APAPUN BISA MERESPON")
-        
+
         while True:
             #Tampilkan foto diam hasil capture secara berulang agar os tidak hang
-            cv2.imshow('output', frame_terakhir)
+            # cv2.imshow('output', frame_terakhir)
             cv2.waitKey(30)
-            
+
             #cek status secara real-tme: apakah ada audio yang sedang berputar?
             audio_sedang_berputar = vlc_player.is_playing()
-            
+
             #A. Cek tombol gpio 27 (exit utama)
             if GPIO.input(BUTTON_EXIT) == GPIO.LOW:
                 if audio_sedang_berputar:
                     print("Aksi ditolak: tunggu sampai audio yang sedang berjalan selesai!")
                     time.sleep(0.3) #mencegah double trigger
-                    
+
                 else:
                     print("Tombol GPIO 27 ditekan! Mengirim pesan exit ke ESP32...")
-                    
+
                     nama_file_exit = os.path.join(AUDIO_FOLDER, f"suara_{class_id}_exit.mp3")
                     if os.path.exists(nama_file_exit):
                         vlc_player.stop()
-                        
+
                         media_exit = vlc_instance.media_new(nama_file_exit)
                         vlc_player.set_media(media_exit)
                         vlc_player.play()
-                        
+
                         time.sleep(0.3)
-                        
+
                         print("Memutar audio exit, menahan pengiriman pesan ke ESP32...")
-                        
+
                         while vlc_player.get_state() not in [vlc.State.Ended, vlc.State.Stopped, vlc.State.Error]:
                             cv2.imshow('output', frame_terakhir)
                             cv2.waitKey(30)
-                            
+
                         print("Audio exit SELESAI TOTAL!")
                     else:
                         print(f"Peringatan: file audio exit '{nama_file_exit}' tidak ditemukan, lanjut tanpa suara")
-                    
+
                     print("Audio exit selesai. Mengirim pesan e ke ESP32...")
                     kirim_ke_esp32(ser)
                     break #keluar dari loop audio, menutup layar
-            
+
             #B. Cek tombol pilihan audio tambahan GPIO 4,22,23,24
             for pin_tombol in BUTTONS_AUDIO:
                 if GPIO.input(pin_tombol) == GPIO.LOW:
@@ -280,24 +280,24 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
                         print("Aksi ditolak: tunggu sampai audio yang sedang berjalan selesai!")
                         time.sleep(0.3) #mencegah double trigger
                         continue #lewati proses di bawah, cek tombol berikutnya
-                    
+
                     #jika kondisi hening/audio selesai, barulah lagu baru diizinkan berputar
                     print(f"tombol audio pin GPIO {pin_tombol} diizinkan ditekan.")
                     putar_suara(class_id, nomor_tombol=pin_tombol)
-                    time.sleep(0.4)      
-                
-            
+                    time.sleep(0.4)
+
+
             # Tombol q untuk skip audio dan langsung menutup layar
             if cv2.waitKey(100) & 0xFF == ord('q'):
                 print("Audio dilewati oleh user.")
                 vlc_player.stop()
                 break
-                
+
     # --- TAHAP 4: BERSIHKAN MONITOR & KEMBALI STANDBY ---
     cv2.destroyAllWindows()
     print("Jendela monitor ditutup. Kembali ke mode Standby.")
 
-        
+
 # ================= 4. FUNGSI UTAMA (MAIN LOOP) =================
 
 def main():
@@ -306,22 +306,22 @@ def main():
     inisialisasi_audio()
     ser = inisialisasi_serial()
     interpreter, input_details, output_details, labels = inisialisasi_model()
-    
+
     print("\n system standby: menunggu perintah dari ESP32")
-    
+
     try:
         while True:
             #cek penekanan tombol fisik saat mode standby
             if GPIO.input(BUTTON_PIN) == GPIO.HIGH:
                 print("\n tombol ditekan")
                 time.sleep(0.4)
-                
+
                 jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels,ser) #tambahkan ser kalau sudah disambungkan ke esp32
-                
+
                 print("\n=== SYSTEM STANDBY: Siap Menerima Trigger Berikutnya ===")
 
             time.sleep(0.05)
-                
+
     finally:
         # Menjamin pembersihan resource perangkat keras saat program ditutup
         print("\nMembersihkan Resource...")
