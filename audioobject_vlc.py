@@ -263,11 +263,11 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
 
                         print("Memutar audio exit, menahan pengiriman pesan ke ESP32...")
 
-                        # while vlc_player.get_state() not in [vlc.State.Ended, vlc.State.Stopped, vlc.State.Error]:
+                        while vlc_player.get_state() not in [vlc.State.Ended, vlc.State.Stopped, vlc.State.Error]:
                             # cv2.imshow('output', frame_terakhir)
                             # cv2.waitKey(30)
 
-                        # print("Audio exit SELESAI TOTAL!")
+                            print("Audio exit SELESAI TOTAL!")
                     else:
                         print(f"Peringatan: file audio exit '{nama_file_exit}' tidak ditemukan, lanjut tanpa suara")
 
