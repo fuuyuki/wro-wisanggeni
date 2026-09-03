@@ -219,10 +219,10 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
             cv2.putText(frame, fps_text, (20,40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2, cv2.LINE_AA)
 
             # Jika belum ada objek, tetap tampilkan video live kamera seperti biasa
-            cv2.imshow('output', frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                print("Batal scan, kembali ke standby.")
-                return True
+            # cv2.imshow('output', frame)
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     print("Batal scan, kembali ke standby.")
+            #     return True
 
     finally:
         # --- TAHAP 2: KAMERA LANGSUNG DIMATIKAN DI SINI ---
@@ -236,8 +236,8 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
 
         while True:
             #Tampilkan foto diam hasil capture secara berulang agar os tidak hang
-            cv2.imshow('output', frame_terakhir)
-            cv2.waitKey(30)
+            # cv2.imshow('output', frame_terakhir)
+            # cv2.waitKey(30)
 
             #cek status secara real-tme: apakah ada audio yang sedang berputar?
             audio_sedang_berputar = vlc_player.is_playing()
@@ -264,8 +264,8 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
                         print("Memutar audio exit, menahan pengiriman pesan ke ESP32...")
 
                         while vlc_player.get_state() not in [vlc.State.Ended, vlc.State.Stopped, vlc.State.Error]:
-                            cv2.imshow('output', frame_terakhir)
-                            cv2.waitKey(30)
+                            # cv2.imshow('output', frame_terakhir)
+                            # cv2.waitKey(30)
 
                         print("Audio exit SELESAI TOTAL!")
                     else:
