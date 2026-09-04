@@ -93,6 +93,37 @@ def inisialisasi_model():
     print("Model TFLite Ok")
     return interpreter, input_details, output_details, labels
 
+def putar_audio_welcome():
+    """Memutar audio sambutan saat program pertama kali dijalankan"""
+    global vlc_instance, vlc_player
+
+    path_welcome = os.path.join(AUDIO_FOLDER, "welcome.mp3")
+
+    if os.path.exists(path_welcome):
+        print("Memutar audio sambutan Wisanggeni...")
+
+        vlc_player.stop()
+
+        media = vlc_instance.media_new(path_welcome)
+        vlc_player.set_media(media)
+        vlc_player.play()
+
+        # Beri waktu VLC untuk benar-benar mulai
+        time.sleep(0.3)
+
+        # Tunggu sampai audio sambutan selesai
+        while vlc_player.get_state() not in [
+            vlc.State.Ended,
+            vlc.State.Stopped,
+            vlc.State.Error
+        ]:
+            time.sleep(0.1)
+
+        print("Audio sambutan selesai.")
+
+    else:
+        print(f"Peringatan: Audio sambutan '{path_welcome}' tidak ditemukan!")
+
 # ================= 2. FUNGSI FITUR UTAMA =================
 
 def putar_suara(class_id, nomor_tombol=None):
@@ -306,6 +337,7 @@ def main():
     # Panggil semua fungsi inisialisasi diawal
     inisialisasi_gpio()
     inisialisasi_audio()
+    putar_audio_welcome()
     ser = inisialisasi_serial()
     interpreter, input_details, output_details, labels = inisialisasi_model()
 
