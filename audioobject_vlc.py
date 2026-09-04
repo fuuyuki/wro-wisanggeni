@@ -1,8 +1,8 @@
 import numpy as np
 import cv2
 import os
-cv2.setNumThreads(0)   # optional
-os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"  # optional, not needed
+# cv2.setNumThreads(0)   # optional
+# os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"  # optional, not needed
 import time
 import serial
 import RPi.GPIO as GPIO
@@ -267,7 +267,7 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
                             cv2.imshow('output', frame_terakhir)
                             cv2.waitKey(30)
 
-                            print("Audio exit SELESAI TOTAL!")
+                        print("Audio exit SELESAI TOTAL!")
                     else:
                         print(f"Peringatan: file audio exit '{nama_file_exit}' tidak ditemukan, lanjut tanpa suara")
 
