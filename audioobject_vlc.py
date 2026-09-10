@@ -252,8 +252,8 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
             # Jika belum ada objek, tetap tampilkan video live kamera seperti biasa
             cv2.imshow('output', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                print("Batal scan, kembali ke standby.")
-                return True
+              print("Batal scan, kembali ke standby.")
+              return True
 
     finally:
         # --- TAHAP 2: KAMERA LANGSUNG DIMATIKAN DI SINI ---
