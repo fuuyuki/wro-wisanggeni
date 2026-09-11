@@ -4,6 +4,7 @@ import os
 # cv2.setNumThreads(0)   # optional
 # os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"  # optional, not needed
 import time
+import threading
 import serial
 import RPi.GPIO as GPIO
 from tensorflow.lite.python.interpreter import Interpreter
@@ -70,7 +71,9 @@ def inisialisasi_serial():
     """Mengatur koneksi komunikasi data ke Arduino"""
     try:
         ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-        time.sleep(3)
+        # Tunggu ESP32 selesai auto-reset setelah port serial dibuka.
+        # 1.5s biasanya cukup; naikkan ke 3s jika pesan pertama sering hilang.
+        time.sleep(1.5)
         ser.reset_input_buffer()
         print("Serial Ok")
         return ser
@@ -93,8 +96,9 @@ def inisialisasi_model():
     print("Model TFLite Ok")
     return interpreter, input_details, output_details, labels
 
-def putar_audio_welcome():
-    """Memutar audio sambutan saat program pertama kali dijalankan"""
+def mulai_audio_welcome():
+    """Mulai memutar audio sambutan tanpa menunggu (non-blocking).
+    Mengembalikan True jika audio berhasil dimulai."""
     global vlc_instance, vlc_player
 
     path_welcome = os.path.join(AUDIO_FOLDER, "welcome.mp3")
@@ -107,22 +111,31 @@ def putar_audio_welcome():
         media = vlc_instance.media_new(path_welcome)
         vlc_player.set_media(media)
         vlc_player.play()
+        return True
 
-        # Beri waktu VLC untuk benar-benar mulai
-        time.sleep(0.3)
+    print(f"Peringatan: Audio sambutan '{path_welcome}' tidak ditemukan!")
+    return False
 
-        # Tunggu sampai audio sambutan selesai
-        while vlc_player.get_state() not in [
-            vlc.State.Ended,
-            vlc.State.Stopped,
-            vlc.State.Error
-        ]:
-            time.sleep(0.1)
 
-        print("Audio sambutan selesai.")
+def tunggu_audio_welcome():
+    """Menunggu sampai audio sambutan selesai (blocking)."""
+    global vlc_player
 
-    else:
-        print(f"Peringatan: Audio sambutan '{path_welcome}' tidak ditemukan!")
+    # Tunggu sampai audio sambutan selesai
+    while vlc_player.get_state() not in [
+        vlc.State.Ended,
+        vlc.State.Stopped,
+        vlc.State.Error
+    ]:
+        time.sleep(0.1)
+
+    print("Audio sambutan selesai.")
+
+
+def putar_audio_welcome():
+    """Mulai dan tunggu audio sambutan (dipakai jika tidak butuh paralel)."""
+    if mulai_audio_welcome():
+        tunggu_audio_welcome()
 
 # ================= 2. FUNGSI FITUR UTAMA =================
 
@@ -334,12 +347,38 @@ def jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labe
 # ================= 4. FUNGSI UTAMA (MAIN LOOP) =================
 
 def main():
-    # Panggil semua fungsi inisialisasi diawal
+    # GPIO & audio harus sinkron, jadi dijalankan di thread utama dulu
     inisialisasi_gpio()
     inisialisasi_audio()
-    putar_audio_welcome()
-    ser = inisialisasi_serial()
-    interpreter, input_details, output_details, labels = inisialisasi_model()
+
+    # Mulai audio sambutan di background agar tidak memblokir inisialisasi lain
+    welcome_dimulai = mulai_audio_welcome()
+
+    # Sambil audio sambutan berputar, inisialisasi serial & model secara paralel
+    hasil_serial = {}
+    hasil_model = {}
+
+    def _init_serial():
+        hasil_serial['ser'] = inisialisasi_serial()
+
+    def _init_model():
+        hasil_model['data'] = inisialisasi_model()
+
+    thread_serial = threading.Thread(target=_init_serial)
+    thread_model = threading.Thread(target=_init_model)
+    thread_serial.start()
+    thread_model.start()
+
+    # Tunggu semua inisialisasi selesai
+    thread_serial.join()
+    thread_model.join()
+
+    ser = hasil_serial['ser']
+    interpreter, input_details, output_details, labels = hasil_model['data']
+
+    # Pastikan audio sambutan benar-benar selesai sebelum masuk mode standby
+    if welcome_dimulai:
+        tunggu_audio_welcome()
 
     print("\n system standby: menunggu perintah dari ESP32")
 
@@ -366,7 +405,6 @@ def main():
 
                 if durasi >= 0.1:   # HIGH stabil minimal ~100 ms => penekanan nyata
                     print("\n tombol ditekan (tahan {} ms)".format(int(durasi * 1000)))
-                    time.sleep(0.4)
                     jalankan_kamera_dan_deteksi(interpreter, input_details, output_details, labels, ser)
                     print("\n=== SYSTEM STANDBY: Siap Menerima Trigger Berikutnya ===")
 
